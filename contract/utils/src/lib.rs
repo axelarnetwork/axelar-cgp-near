@@ -4,6 +4,7 @@
  */
 
 use ethabi::decode;
+use ethabi::encode;
 use ethabi::param_type::Reader;
 use ethabi::token::LenientTokenizer;
 use ethabi::token::StrictTokenizer;
@@ -24,7 +25,7 @@ pub fn recover(message: &[u8], signature: &[u8]) -> VerifyingKey {
     recovered_key
 }
 
-pub fn to_verifying_key(pubkey: [u8; 32]) -> VerifyingKey {
+pub fn to_verifying_key(pubkey: [u8; 20]) -> VerifyingKey {
     let mut pubkey_bytes = [0u8; 65];
     pubkey_bytes[0] = 4;
     pubkey_bytes[1..65].copy_from_slice(&pubkey);
@@ -81,38 +82,49 @@ pub fn sign_message(message: String) -> String {
     full_hash
 }
 
-pub fn abi_decode(payload: Vec<u8>, types: &[String]) -> Result<Vec<String>, ethabi::Error> {
-    let types: Vec<ParamType> = types
-        .iter()
-        .map(|s| Reader::read(s))
-        .collect::<Result<_, _>>()?;
-
-    let payload_bytes = &hex::decode(&payload).unwrap();
-    let result = decode(&types, &payload_bytes);
-    assert_eq!(result.is_ok(), true);
-    let values = result.unwrap();
-
-    let result = values
-        .iter()
-        .map(|x| format!("{}", x))
-        .collect::<Vec<String>>();
-
-    Ok(result)
+pub fn abi_decode(data: &[u8], expected_output_types: &[ParamType]) -> Result<Vec<Token>, String> {
+    match decode(expected_output_types, data) {
+        Ok(tokens) => Ok(tokens),
+        Err(e) => Err(format!("Error decoding ABI-encoded data: {:?}", e)),
+    }
 }
+
+pub fn abi_encode(tokens: Vec<Token>) -> Vec<u8> {
+    encode(&tokens)
+}
+
+// pub fn abi_decode(payload: Vec<u8>, types: &[String]) -> Result<Vec<Token>, ethabi::Error> {
+//     let types: Vec<ParamType> = types
+//         .iter()
+//         .map(|s| Reader::read(s))
+//         .collect::<Result<_, _>>()?;
+
+//     let payload_bytes = &hex::decode(&payload).unwrap();
+//     let result = decode(&types, &payload_bytes);
+//     assert_eq!(result.is_ok(), true);
+//     let values = result.unwrap();
+
+//     // let result = values
+//     //     .iter()
+//     //     .map(|x| format!("{}", x))
+//     //     .collect::<Vec<String>>();
+
+//     Ok(values)
+// }
 
 // TODO: Implement json structure for input instead of the message that will be able to map to the Tokens required for ABI encoding
-pub fn abi_encode(message: String) -> String {
-    // assert_eq!(params.len() % 2, 0);
+// pub fn abi_encode(message: String) -> String {
+//     // assert_eq!(params.len() % 2, 0);
 
-    // let params = params
-    //     .iter()
-    //     .tuples::<(_, _)>()
-    //     .map(|(x, y)| Reader::read(x).map(|z| (z, y.as_str())))
-    //     .collect::<Result<Vec<_>, _>>()?;
+//     // let params = params
+//     //     .iter()
+//     //     .tuples::<(_, _)>()
+//     //     .map(|(x, y)| Reader::read(x).map(|z| (z, y.as_str())))
+//     //     .collect::<Result<Vec<_>, _>>()?;
 
-    // let tokens = parse_tokens(params.as_slice(), lenient)?;
-    // let result = encode(&tokens);
+//     // let tokens = parse_tokens(params.as_slice(), lenient)?;
+//     // let result = encode(&tokens);
 
-    // Ok(hex::encode(result))
-    "".to_string()
-}
+//     // Ok(hex::encode(result))
+//     "".to_string()
+// }
