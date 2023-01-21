@@ -2,30 +2,36 @@
  * Axelar ETH utils
  *
  */
-
 use ethabi::decode;
 use ethabi::encode;
+use ethabi::Address;
 use ethabi::ParamType;
 use ethabi::Token;
-use k256::ecdsa::{recoverable, signature::Signature, VerifyingKey};
 use primitive_types::H256;
 use sha3::{Digest, Keccak256};
+use std::str::FromStr;
+use uint::hex;
 
-pub fn recover(message: &[u8], signature: &[u8]) -> VerifyingKey {
-    let actual_signature = recoverable::Signature::from_bytes(signature).unwrap();
-    let recovered_key = actual_signature
-        .recover_verifying_key(message)
-        .expect("couldn't recover pubkey");
+pub fn ecrecover(hash: H256, signature: &[u8]) -> Result<Address, ()> {
+    assert_eq!(signature.len(), 65);
 
-    recovered_key
-}
+    let hash = secp256k1::Message::parse_slice(hash.as_bytes()).unwrap();
+    let v = signature[64];
+    let signature = secp256k1::Signature::parse_slice(&signature[0..64]).unwrap();
+    let bit = match v {
+        0..=26 => v,
+        _ => v - 27,
+    };
 
-pub fn to_verifying_key(pubkey: [u8; 20]) -> VerifyingKey {
-    let mut pubkey_bytes = [0u8; 65];
-    pubkey_bytes[0] = 4;
-    pubkey_bytes[1..65].copy_from_slice(&pubkey);
-    let pubkey = VerifyingKey::from_sec1_bytes(&pubkey_bytes).unwrap();
-    pubkey
+    if let Ok(recovery_id) = secp256k1::RecoveryId::parse(bit) {
+        if let Ok(public_key) = secp256k1::recover(&hash, &signature, &recovery_id) {
+            // recover returns a 65-byte key, but addresses come from the raw 64-byte key
+            let r = sha3::Keccak256::digest(&public_key.serialize()[1..]);
+            return Ok(Address::from_slice(&r[12..]));
+        }
+    }
+
+    Err(())
 }
 
 /// Hash a message according to EIP-191.
@@ -124,4 +130,14 @@ pub fn abi_decode(data: &[u8], expected_output_types: &[ParamType]) -> Result<Ve
 /// A vector of bytes.
 pub fn abi_encode(tokens: Vec<Token>) -> Vec<u8> {
     encode(&tokens)
+}
+
+pub fn clean_payload(payload: String) -> Vec<u8> {
+    let clean_payload = &payload[2..payload.len()];
+    hex::decode(clean_payload).unwrap()
+}
+
+pub fn to_h256(payload: String) -> H256 {
+    let clean_payload = &payload[2..payload.len()];
+    H256::from_str(clean_payload).unwrap()
 }

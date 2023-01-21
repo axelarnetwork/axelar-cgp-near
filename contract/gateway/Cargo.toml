@@ -9,10 +9,11 @@ crate-type = ["cdylib"]
 
 [dependencies]
 near-sdk = "4.0.0"
-uint = { version = "0.9.3", default-features = false }
+near-contract-tools = "0.7.2"
 utils = { path = "../utils" }
-primitive-types = { version = "0.9.0", default-features = false, features = ["rlp"] }
-sha3 = { version = "0.9.1", default-features = false }
-libsecp256k1 = { version = "0.3.5", default-features = false }
-k256 = { version = "0.11.6", default-features = false, features = ["ecdsa", "sha256", "keccak256"] }
 ethabi = { git = "https://github.com/darwinia-network/ethabi", branch = "xavier-no-std", default-features = false }
+uint = { version = "0.9.3", default-features = false }
+primitive-types = { version = "0.9.0", default-features = false, features = ["rlp"] }
+serde = { version = "1.0.144", features = ["derive"] }
+serde_json = "1.0.85"
+getrandom = { version = "0.2", features = ["js"] }

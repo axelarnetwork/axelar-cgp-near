@@ -1,7 +1,7 @@
 [package]
 name = "axelar_auth_weighted"
 version = "1.0.0"
-authors = ["John Doe <john@doe.org>"]
+authors = ["Near Inc <hello@near.org>"]
 edition = "2021"
 
 [lib]
@@ -9,11 +9,22 @@ crate-type = ["cdylib"]
 
 [dependencies]
 near-sdk = "4.1.1"
+near-contract-tools = "0.7.2"
 uint = { version = "0.9.3", default-features = false }
 ethabi = { git = "https://github.com/darwinia-network/ethabi", branch = "xavier-no-std", default-features = false }
-# serde = { version = "1.0.144", features = ["derive"] }
-# serde_json = { version = "1.0.85", default-features = false }
+serde = { version = "1.0.144", features = ["derive"] }
+serde_json = { version = "1.0.85", default-features = false }
 sha3 = { version = "0.9.1", default-features = false }
 libsecp256k1 = { version = "0.3.5", default-features = false }
-k256 = { version = "0.11.6", default-features = false, features = ["ecdsa", "sha256", "keccak256"] }
 primitive-types = { version = "0.9.0", default-features = false, features = ["rlp"] }
+
+[profile.release]
+codegen-units = 1
+opt-level = "z"
+lto = true
+debug = false
+panic = "abort"
+overflow-checks = true
+
+[workspace]
+members = []
