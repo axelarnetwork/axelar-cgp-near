@@ -6,12 +6,18 @@
     "test": "ava"
   },
   "devDependencies": {
+    "@nomiclabs/hardhat-ethers": "^2.2.2",
+    "@nomiclabs/hardhat-waffle": "^2.0.3",
     "@types/bn.js": "^5.1.0",
+    "@types/lodash": "^4.14.191",
     "@types/node": "^18.6.2",
     "ava": "^4.2.0",
+    "ethereum-waffle": "^3.4.4",
+    "ethers": "^5.7.2",
+    "hardhat": "^2.12.6",
+    "lodash": "^4.17.21",
     "near-workspaces": "^3.2.1",
     "ts-node": "^10.8.0",
     "typescript": "^4.7.2"
-  },
-  "dependencies": {}
+  }
 }
