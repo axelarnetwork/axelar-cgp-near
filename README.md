@@ -1,5 +1,10 @@
 # axelar-cgp-near
 
+<p align="middle">
+    <a href="https://axelar.network/brand" target="blank"><img src="./tech-logos/axelar_logo.png" width="200" alt="Axelar Logo" style="margin-right: 32px;"/></a>
+    <a href="https://near.org/" target="blank"><img src="./tech-logos/near_logo.png" width="200" alt="Near Logo" /></a>
+</p>
+
 # Quick Start
 
 Install dependencies:
@@ -12,7 +17,7 @@ Build and deploy your contract to TestNet with a temporary dev account:
 
 Test your contract:
 
-    npm test
+    npm run test
 
 # Exploring The Code
 

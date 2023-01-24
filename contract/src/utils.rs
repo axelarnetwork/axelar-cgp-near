@@ -12,6 +12,16 @@ use sha3::{Digest, Keccak256};
 use std::str::FromStr;
 use uint::hex;
 
+/// It takes a hash and a signature, and returns the address that signed the hash
+///
+/// Arguments:
+///
+/// * `hash`: The hash of the message to be signed.
+/// * `signature`: The signature to verify.
+///
+/// Returns:
+///
+/// The address of the signer.
 pub fn ecrecover(hash: H256, signature: &[u8]) -> Result<Address, ()> {
     assert_eq!(signature.len(), 65);
 
@@ -85,8 +95,15 @@ where
     hash
 }
 
-/// Wrapped functionalities
-
+/// It takes a message, hashes it, and returns the hash as a hex string
+///
+/// Arguments:
+///
+/// * `message`: The message to sign.
+///
+/// Returns:
+///
+/// A string of the hash of the message.
 pub fn sign_message<S>(message: S) -> String
 where
     S: AsRef<[u8]>,
@@ -126,16 +143,45 @@ pub fn abi_encode(tokens: Vec<Token>) -> Vec<u8> {
     encode(&tokens)
 }
 
+/// It takes a string, removes the first two characters, and then converts the remaining string into a
+/// vector of bytes
+///
+/// Arguments:
+///
+/// * `payload`: The payload of the transaction.
+///
+/// Returns:
+///
+/// A vector of bytes
 pub fn clean_payload(payload: String) -> Vec<u8> {
     let clean_payload = &payload[2..payload.len()];
     hex::decode(clean_payload).unwrap()
 }
 
+/// It takes a string, removes the first two characters, and then converts the remaining string into a
+/// 256-bit hash
+///
+/// Arguments:
+///
+/// * `payload`: The payload of the transaction.
+///
+/// Returns:
+///
+/// A H256 hash
 pub fn to_h256(payload: String) -> H256 {
     let clean_payload = &payload[2..payload.len()];
     H256::from_str(clean_payload).unwrap()
 }
 
+/// It takes a 32-byte array and returns a hex string
+///
+/// Arguments:
+///
+/// * `payload`: [u8; 32] - The payload is a 32 byte array.
+///
+/// Returns:
+///
+/// A string
 pub fn to_eth_hex_string(payload: [u8; 32]) -> String {
     format!("0x{}", hex::encode(payload))
 }

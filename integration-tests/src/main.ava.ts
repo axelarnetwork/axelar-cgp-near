@@ -2,104 +2,8 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import anyTest, { TestFn } from "ava";
 import { sortBy } from "lodash";
 import { NEAR, NearAccount, Worker } from "near-workspaces";
+import Utils from "./utils";
 const { ethers } = require("hardhat");
-
-class Utils {
-  static getRandomID = () => {
-    return ethers.utils.id(Math.floor(Math.random() * 1e10).toString());
-  };
-
-  static getWeightedSignaturesProof = async (
-    data: string,
-    operators: SignerWithAddress[],
-    weights: number[],
-    threshold: number,
-    signers: SignerWithAddress[]
-  ) => {
-    const hash = ethers.utils.arrayify(ethers.utils.keccak256(data));
-    const signatures = await Promise.all(
-      sortBy(signers, (wallet) => wallet.address.toLowerCase()).map((wallet) =>
-        wallet.signMessage(hash)
-      )
-    );
-    return ethers.utils.defaultAbiCoder.encode(
-      ["address[]", "uint256[]", "uint256", "bytes[]"],
-      [getAddresses(operators), weights, threshold, signatures]
-    );
-  };
-
-  static getTransferWeightedOperatorshipCommand = async (
-    newOperators: string[],
-    newWeights: number[],
-    threshold: number
-  ) => {
-    return ethers.utils.defaultAbiCoder.encode(
-      ["address[]", "uint256[]", "uint256"],
-      [
-        sortBy(newOperators, (address) => address.toLowerCase()),
-        newWeights,
-        threshold,
-      ]
-    );
-  };
-
-  static getApproveContractCall = async (
-    sourceChain: string,
-    source: string,
-    destination: string,
-    payloadHash: string,
-    sourceTxHash: string,
-    sourceEventIndex: number
-  ) => {
-    return ethers.utils.defaultAbiCoder.encode(
-      ["string", "string", "address", "bytes32", "bytes32", "uint256"],
-      [
-        sourceChain,
-        source,
-        destination,
-        payloadHash,
-        sourceTxHash,
-        sourceEventIndex,
-      ]
-    );
-  };
-
-  static buildCommandBatch = async (
-    chainId: number,
-    commandIDs: string[],
-    commandNames: string[],
-    commands: string[]
-  ) => {
-    return ethers.utils.arrayify(
-      ethers.utils.defaultAbiCoder.encode(
-        ["uint256", "bytes32[]", "string[]", "bytes[]"],
-        [chainId, commandIDs, commandNames, commands]
-      )
-    );
-  };
-
-  static getSignedWeightedExecuteInput = async (
-    data: string,
-    operators: SignerWithAddress[],
-    weights: number[],
-    threshold: number,
-    signers: SignerWithAddress[]
-  ) => {
-    return ethers.utils.defaultAbiCoder.encode(
-      ["bytes", "bytes"],
-      [
-        data,
-        await Utils.getWeightedSignaturesProof(
-          data,
-          operators,
-          weights,
-          threshold,
-          signers
-        ),
-      ]
-    );
-  };
-}
 
 const test = anyTest as TestFn<{
   worker: Worker;
@@ -117,12 +21,9 @@ let owner: SignerWithAddress;
 let operators: SignerWithAddress[];
 const previousOperators: SignerWithAddress[][] = [];
 
-const getAddresses = (signers: SignerWithAddress[]) =>
-  signers.map(({ address }) => address);
-
-const initAuthContract = async (root: NearAccount, contract: NearAccount) => {
+const initContract = async (root: NearAccount, contract: NearAccount) => {
   await contract.deploy(
-    "./auth/target/wasm32-unknown-unknown/release/axelar_auth_weighted.wasm"
+    "./contract/target/wasm32-unknown-unknown/release/axelar_auth_gateway.wasm"
   );
 
   const initialOperators: SignerWithAddress[][] = [
@@ -186,7 +87,7 @@ test.beforeEach(async (t) => {
 
   const contract = await root.createSubAccount("axelar_auth_weighted");
 
-  await initAuthContract(root, contract);
+  await initContract(root, contract);
 
   t.context.worker = worker;
   t.context.accounts = { root, contract, john };
@@ -200,7 +101,7 @@ test.afterEach.always(async (t) => {
 
 // Auth Tests
 
-test("validate the proof from the current operators", async (t) => {
+test("Auth - validate the proof from the current operators", async (t) => {
   const { contract } = t.context.accounts;
 
   const data = "0x123abc123abc";
@@ -225,7 +126,7 @@ test("validate the proof from the current operators", async (t) => {
   t.is(isCurrentOperators, true);
 });
 
-test("reject the proof if weights are not matching the threshold", async (t) => {
+test("Auth - reject the proof if weights are not matching the threshold", async (t) => {
   const { contract } = t.context.accounts;
 
   const data = "0x123abc123abc";
@@ -252,7 +153,7 @@ test("reject the proof if weights are not matching the threshold", async (t) => 
   t.not(error, undefined); // Low signature weight
 });
 
-test("reject the proof if signatures are invalid", async (t) => {
+test("Auth - reject the proof if signatures are invalid", async (t) => {
   const { contract } = t.context.accounts;
 
   const data = "0x123abc123abc";
@@ -279,7 +180,7 @@ test("reject the proof if signatures are invalid", async (t) => {
   t.not(error, undefined); // Malformed signers
 });
 
-test("validate the proof from the recent operators", async (t) => {
+test("Auth - validate the proof from the recent operators", async (t) => {
   const { contract } = t.context.accounts;
 
   const data = "0x123abc123abc";
@@ -312,7 +213,7 @@ test("validate the proof from the recent operators", async (t) => {
   );
 });
 
-test("reject the proof from the operators older than key retention", async (t) => {
+test("Auth - reject the proof from the operators older than key retention", async (t) => {
   const { contract } = t.context.accounts;
 
   const data = "0x123abc123abc";
@@ -348,10 +249,10 @@ test("reject the proof from the operators older than key retention", async (t) =
   );
 });
 
-test("validate the proof for a single operator", async (t) => {
+test("Auth - validate the proof for a single operator", async (t) => {
   const { contract, root } = t.context.accounts;
 
-  const singleOperator = getAddresses([owner]);
+  const singleOperator = Utils.getAddresses([owner]);
 
   const didTransferOperatorship = await root.call(
     contract,
@@ -386,7 +287,7 @@ test("validate the proof for a single operator", async (t) => {
   t.is(isCurrentOperators, true);
 });
 
-test("validate the proof for a single signer", async (t) => {
+test("Auth - validate the proof for a single signer", async (t) => {
   const { contract, root } = t.context.accounts;
 
   const didTransferOperatorship = await root.call(
@@ -394,7 +295,7 @@ test("validate the proof for a single signer", async (t) => {
     "transfer_operatorship",
     {
       params: await Utils.getTransferWeightedOperatorshipCommand(
-        getAddresses(operators),
+        Utils.getAddresses(operators),
         operators.map(() => 1),
         1
       ),
@@ -426,7 +327,7 @@ test("validate the proof for a single signer", async (t) => {
   t.is(isCurrentOperators, true);
 });
 
-test("should allow owner to transfer operatorship", async (t) => {
+test("Auth - should allow owner to transfer operatorship", async (t) => {
   const { contract, root } = t.context.accounts;
 
   const newOperators = [
@@ -450,7 +351,7 @@ test("should allow owner to transfer operatorship", async (t) => {
   t.is(didTransferOperatorship, true);
 });
 
-test("should not allow transferring operatorship to address zero", async (t) => {
+test("Auth - should not allow transferring operatorship to address zero", async (t) => {
   const { contract, root } = t.context.accounts;
 
   const newOperators = [
@@ -478,7 +379,7 @@ test("should not allow transferring operatorship to address zero", async (t) => 
   t.not(error, undefined); // Invalid operators
 });
 
-test("should not allow transferring operatorship to duplicated operators", async (t) => {
+test("Auth - should not allow transferring operatorship to duplicated operators", async (t) => {
   const { contract, root } = t.context.accounts;
 
   const newOperators = [
@@ -506,7 +407,7 @@ test("should not allow transferring operatorship to duplicated operators", async
   t.not(error, undefined); // Invalid operators
 });
 
-test("should not allow transferring operatorship to unsorted operators", async (t) => {
+test("Auth - should not allow transferring operatorship to unsorted operators", async (t) => {
   const { contract, root } = t.context.accounts;
 
   const newOperators = [
@@ -533,10 +434,10 @@ test("should not allow transferring operatorship to unsorted operators", async (
   t.not(error, undefined); // Invalid operators
 });
 
-test("should not allow operatorship transfer to the previous operators", async (t) => {
+test("Auth - should not allow operatorship transfer to the previous operators", async (t) => {
   const { contract, root } = t.context.accounts;
 
-  const updatedOperators = getAddresses(operators.slice(0, threshold));
+  const updatedOperators = Utils.getAddresses(operators.slice(0, threshold));
 
   const didTransferOperatorship = await root.call(
     contract,
@@ -553,7 +454,7 @@ test("should not allow operatorship transfer to the previous operators", async (
 
   t.is(didTransferOperatorship, true);
 
-  const oldOperators = getAddresses(operators);
+  const oldOperators = Utils.getAddresses(operators);
 
   const error = await t.throwsAsync(
     root.call(
@@ -575,7 +476,7 @@ test("should not allow operatorship transfer to the previous operators", async (
   t.not(error, undefined); // Duplicate operators
 });
 
-test("should not allow transferring operatorship with invalid threshold", async (t) => {
+test("Auth - should not allow transferring operatorship with invalid threshold", async (t) => {
   const { contract, root } = t.context.accounts;
 
   const newOperators = [
@@ -622,7 +523,7 @@ test("should not allow transferring operatorship with invalid threshold", async 
   t.not(error, undefined); // Invalid threshold
 });
 
-test("should not allow transferring operatorship with invalid number of weights", async (t) => {
+test("Auth - should not allow transferring operatorship with invalid number of weights", async (t) => {
   const { contract, root } = t.context.accounts;
 
   const newOperators = [
@@ -669,7 +570,7 @@ test("should not allow transferring operatorship with invalid number of weights"
   t.not(error, undefined); // Invalid weights
 });
 
-test("should expose correct hashes and epoch", async (t) => {
+test("Auth - should expose correct hashes and epoch", async (t) => {
   const { contract } = t.context.accounts;
 
   const operatorsHistory = [...previousOperators, operators];
@@ -677,7 +578,7 @@ test("should expose correct hashes and epoch", async (t) => {
   await Promise.all(
     operatorsHistory.map(async (operators, i) => {
       const payload = await Utils.getTransferWeightedOperatorshipCommand(
-        getAddresses(operators),
+        Utils.getAddresses(operators),
         operators.map(() => 1),
         threshold
       );
@@ -699,7 +600,7 @@ test("should expose correct hashes and epoch", async (t) => {
 
 // Gateway Tests
 
-test("should fail if chain id mismatches", async (t) => {
+test("Gateway - should fail if chain id mismatches", async (t) => {
   const { contract, root } = t.context.accounts;
 
   const data = await Utils.buildCommandBatch(
@@ -742,7 +643,137 @@ test("should fail if chain id mismatches", async (t) => {
     )
   );
 
-  t.log(error?.message); // uncomment to see the error message
+  // t.log(error?.message); // uncomment to see the error message
 
   t.not(error, undefined); // Invalid chain id
+});
+
+test("Gateway - should allow operators to transfer operatorship", async (t) => {
+  const { contract, root } = t.context.accounts;
+
+  const newOperators = [
+    "0xb7900E8Ec64A1D1315B6D4017d4b1dcd36E6Ea88",
+    "0x6D4017D4b1DCd36e6EA88b7900e8eC64A1D1315b",
+  ];
+
+  const data = await Utils.buildCommandBatch(
+    CHAIN_ID,
+    [Utils.getRandomID()],
+    ["transferOperatorship"],
+    [
+      await Utils.getTransferWeightedOperatorshipCommand(
+        newOperators,
+        [1, 1],
+        2
+      ),
+    ]
+  );
+
+  const message = ethers.utils.hashMessage(
+    ethers.utils.arrayify(ethers.utils.keccak256(data))
+  );
+
+  const input = await Utils.getSignedWeightedExecuteInput(
+    data,
+    operators,
+    operators.map(() => 1),
+    threshold,
+    operators.slice(0, threshold)
+  );
+
+  const result = await root.call(
+    contract,
+    "execute",
+    {
+      message_hash: message,
+      input,
+    },
+    { attachedDeposit: "0" }
+  );
+
+  t.deepEqual(result, [true]);
+});
+
+test("Gateway - should not allow transferring operatorship to address zero", async (t) => {
+  const { contract, root } = t.context.accounts;
+
+  const newOperators = [
+    ADDRESS_ZERO,
+    "0x6D4017D4b1DCd36e6EA88b7900e8eC64A1D1315b",
+  ];
+
+  const data = await Utils.buildCommandBatch(
+    CHAIN_ID,
+    [Utils.getRandomID()],
+    ["transferOperatorship"],
+    [
+      await Utils.getTransferWeightedOperatorshipCommand(
+        newOperators,
+        [1, 1],
+        2
+      ),
+    ]
+  );
+
+  const message = ethers.utils.hashMessage(
+    ethers.utils.arrayify(ethers.utils.keccak256(data))
+  );
+
+  const input = await Utils.getSignedWeightedExecuteInput(
+    data,
+    operators,
+    operators.map(() => 1),
+    threshold,
+    operators.slice(0, threshold)
+  );
+
+  const error = await t.throwsAsync(
+    root.call(
+      contract,
+      "execute",
+      {
+        message_hash: message,
+        input,
+      },
+      { attachedDeposit: "0" }
+    )
+  );
+
+  // t.log(error?.message); // uncomment to see the error message
+
+  t.not(error, undefined); // Invalid operators
+});
+
+test("Gateway - call contract", async (t) => {
+  const { contract, root } = t.context.accounts;
+
+  const chain = "Polygon";
+  const destination = "0xb7900E8Ec64A1D1315B6D4017d4b1dcd36E6Ea88";
+  const payload = ethers.utils.defaultAbiCoder.encode(
+    ["address", "address"],
+    [wallets[1].address, wallets[2].address]
+  );
+
+  const event: {
+    address: string;
+    destination_chain: string;
+    destination_contract_address: string;
+    payload_hash: string;
+    payload: string;
+  } = await contract.call(
+    contract,
+    "call_contract",
+    {
+      destination_chain: chain,
+      destination_contract_address: destination,
+      payload,
+    },
+    { attachedDeposit: "0" }
+  );
+
+  t.is(event.address, contract.accountId);
+  t.is(event.destination_chain, chain);
+  t.is(event.destination_contract_address, destination);
+  t.is(event.payload_hash, ethers.utils.keccak256(payload));
+  t.is(event.payload, payload);
 });

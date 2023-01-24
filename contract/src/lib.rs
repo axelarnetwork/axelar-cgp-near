@@ -29,14 +29,25 @@ use utils::{abi_decode, abi_encode, keccak256};
 /// A constant that is used to determine how many epochs old keys are valid for.
 pub const OLD_KEY_RETENTION: u8 = 16;
 
-/// `AxelarAuthWeighted` is a struct that contains a `current_epoch` field, a `hash_for_epoch` field,
-/// and an `epoch_for_hash` field.
+/// `Axelar` is a struct that contains a `current_epoch` field, a `hash_for_epoch` field, an
+/// `epoch_for_hash` field, a `prefix_command_executed` field, a `prefix_contract_call_approved` field,
+/// and a `bool_state` field.
+///
+/// The `current_epoch` field is a `u64` (unsigned 64-bit integer).
+///
+/// The `hash_for_epoch` field is a `LookupMap<u64, [u
 ///
 /// Properties:
 ///
 /// * `current_epoch`: The current epoch number.
-/// * `hash_for_epoch`: A map of epochs to the hash of the block that was produced at that epoch.
-/// * `epoch_for_hash`: This is a map that maps a hash to an epoch.
+/// * `hash_for_epoch`: This is a map that stores the hash of the block that was used to create the
+/// epoch.
+/// * `epoch_for_hash`: This is a mapping from a hash to an epoch.
+/// * `prefix_command_executed`: This is the prefix for the key that stores the boolean value of whether
+/// a command has been executed.
+/// * `prefix_contract_call_approved`: This is the prefix for the key that stores the boolean value of
+/// whether a contract call has been approved.
+/// * `bool_state`: This is a map that stores the state of the contract.
 #[near_bindgen]
 #[derive(Owner, BorshDeserialize, BorshSerialize)]
 pub struct Axelar {
@@ -49,7 +60,7 @@ pub struct Axelar {
     bool_state: LookupMap<[u8; 32], bool>,
 }
 
-/// This is a default implementation of the `AxelarAuthWeighted` struct.
+/// This is a default implementation of the `Axelar` struct.
 impl Default for Axelar {
     fn default() -> Self {
         Self {
@@ -96,17 +107,35 @@ impl Axelar {
         contract
     }
 
+    /// It takes an epoch number and returns the hash of the block that was mined at that epoch
+    ///
+    /// Arguments:
+    ///
+    /// * `epoch`: The epoch number for which you want to get the hash.
+    ///
+    /// Returns:
+    ///
+    /// The hash of the block at the given epoch.
     pub fn hash_for_epoch(&self, epoch: u64) -> String {
         let hash = self.hash_for_epoch.get(&epoch).unwrap();
         utils::to_eth_hex_string(hash)
     }
 
+    /// `epoch_for_hash` returns the epoch number for a given hash
+    ///
+    /// Arguments:
+    ///
+    /// * `hash`: The hash of the block to get the epoch for.
+    ///
+    /// Returns:
+    ///
+    /// The epoch for the hash.
     pub fn epoch_for_hash(&self, hash: String) -> u64 {
         let hash: [u8; 32] = clean_payload(hash).try_into().unwrap();
         self.epoch_for_hash.get(&hash).unwrap()
     }
 
-    /// > If the epoch of the operators is the same as the current epoch, and the epoch of the operators
+    /// If the epoch of the operators is the same as the current epoch, and the epoch of the operators
     /// is not too old, then validate the signatures
     ///
     /// Arguments:

@@ -1,17 +1,23 @@
-# Axelar NEAR Contracts
-
-<br />
+# Axelar NEAR Contract
 
 # Quickstart
 
-1. Make sure you have installed [rust](https://rust.org/).
-2. Install the [`NEAR CLI`](https://github.com/near/near-cli#setup)
+1. Make sure you have installed [rust](https://doc.rust-lang.org/cargo/getting-started/installation.html).
+2. Install the [`NEAR CLI`](https://github.com/near/near-cli#setup) (if you plan to deploy the contract)
 
 <br />
 
-## 1. Build and Deploy the Contract
+## 1. Build contract
 
-You can automatically compile and deploy the contracts in the NEAR testnet by running:
+```bash
+./build.sh
+```
+
+<br />
+
+## 2. Build and Deploy the Contract (required NEAR setup)
+
+You can automatically compile and deploy the contract in the NEAR testnet by running:
 
 ```bash
 ./deploy.sh

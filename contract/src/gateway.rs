@@ -13,7 +13,7 @@ use uint::hex;
 
 /// Defining a constant string called SELECTOR_APPROVE_CONTRACT_CALL.
 pub const SELECTOR_APPROVE_CONTRACT_CALL: &str = "approveContractCall";
-/// Defining a constant string.
+/// Defining a constant string called SELECTOR_TRANSFER_OPERATORSHIP.
 pub const SELECTOR_TRANSFER_OPERATORSHIP: &str = "transferOperatorship";
 
 #[near_bindgen]
@@ -25,35 +25,44 @@ impl Axelar {
     ///
     /// * `destination_chain`: The chain that the contract is on.
     /// * `destination_contract_address`: The address of the contract you want to call.
-    /// * `payload`: The payload to be sent to the destination contract.
+    /// * `payload`: The payload to be sent to the destination contract.  
+    #[payable]
     pub fn call_contract(
         destination_chain: String,
         destination_contract_address: String,
         payload: String,
-    ) {
-        let payload_hash = keccak256(&hex::decode(payload.clone()).unwrap());
+    ) -> ContractCallEvent {
+        let payload_hash = keccak256(clean_payload(payload.clone()));
 
         let event = ContractCallEvent {
             address: predecessor_account_id().to_string(),
             destination_chain,
             destination_contract_address,
-            payload_hash: utils::to_eth_hex_string(payload_hash),
+            payload_hash: utils::to_eth_hex_string(payload_hash.try_into().unwrap()),
             payload,
         };
+
         Event::emit(&event);
+
+        event
     }
 
     // Execute command function
-    ///
-    /// The first part of the function is calling the `validate_proof` function of the
-    /// `ext_auth_contract` module. This function takes in two parameters, the message hash and the
-    /// proof. The message hash is the hash of the data that was signed by
+
+    /// It takes a message hash and a proof, validates the proof, and then executes the commands in the
+    /// message
     ///
     /// Arguments:
     ///
-    /// * `input`: The input to the contract.
+    /// * `message_hash`: The hash of the message that was signed by the operator.
+    /// * `input`: The input to the contract. This is the data that is passed to the contract.
+    ///
+    /// Returns:
+    ///
+    /// The return value is a vector of booleans. Each boolean represents the result of the execution of
+    /// a command.
     #[payable]
-    pub fn execute(&mut self, message_hash: String, input: String) {
+    pub fn execute(&mut self, message_hash: String, input: String) -> Vec<bool> {
         let payload = clean_payload(input.clone());
 
         let tokens = abi_decode(&payload, &vec![ParamType::Bytes, ParamType::Bytes]).unwrap();
@@ -111,6 +120,8 @@ impl Axelar {
             env::panic_str("Invalid commands");
         }
 
+        let mut call_results: Vec<bool> = Vec::new();
+
         for i in 0..commands_length {
             let command_id: [u8; 32] = command_ids[i].clone().try_into().unwrap();
 
@@ -137,6 +148,7 @@ impl Axelar {
 
                     allow_operatorship_transfer = false;
                     self.internal_set_command_executed(command_id, true);
+
                     success = self.internal_transfer_operatorship(params[i].clone());
                 }
                 _ => {
@@ -153,17 +165,26 @@ impl Axelar {
             } else {
                 self.internal_set_command_executed(command_id, false);
             }
+
+            call_results.push(success);
         }
+
+        call_results
     }
 
-    // Only Owner functions
-    /// `approve_contract_call` is a function that is called by the owner of the contract to approve a
-    /// contract call
+    /// Only Owner functions
+
+    /// `approve_contract_call` is a function that is called by the `Bridge` contract on the source
+    /// chain to approve a contract call
     ///
     /// Arguments:
     ///
-    /// * `params`: Vec<u8> - The parameters passed to the contract.
-    /// * `command_id`: The command ID of the contract call.
+    /// * `params`: The parameters of the contract call.
+    /// * `command_id`: The ID of the command that was approved.
+    ///
+    /// Returns:
+    ///
+    /// A boolean value.
     pub fn approve_contract_call(&mut self, params: String, command_id: String) -> bool {
         Self::require_owner();
 
@@ -247,11 +268,11 @@ impl Axelar {
         self.bool_state.get(&key).unwrap_or(false)
     }
 
-    /// `auth_module` returns the `AccountId` of the `auth_module` of the `ContractInfo` struct
+    /// `auth_module` returns the account id of the current account
     ///
     /// Returns:
     ///
-    /// The auth_module field of the struct.
+    /// The account id of the current account.
     pub fn auth_module(&self) -> AccountId {
         env::current_account_id()
     }
