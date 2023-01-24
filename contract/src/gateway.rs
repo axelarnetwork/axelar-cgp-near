@@ -1,5 +1,5 @@
 use crate::events::{ContractCallApprovedEvent, ContractCallEvent, ExecutedEvent};
-use crate::utils::{self, abi_encode, clean_payload, to_eth_hex_string};
+use crate::utils::{self, abi_encode, clean_payload};
 use crate::{utils::abi_decode, utils::keccak256, Axelar, AxelarExt};
 use ethabi::Token;
 use near_contract_tools::owner::*;
@@ -16,6 +16,7 @@ pub const SELECTOR_APPROVE_CONTRACT_CALL: &str = "approveContractCall";
 /// Defining a constant string called SELECTOR_TRANSFER_OPERATORSHIP.
 pub const SELECTOR_TRANSFER_OPERATORSHIP: &str = "transferOperatorship";
 
+/// Axelar Gateway Implementation
 #[near_bindgen]
 impl Axelar {
     /// It emits a `ContractCallEvent` event with the current account ID, the destination chain, the
