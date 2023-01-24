@@ -4,6 +4,7 @@
  */
 
 mod events;
+mod gateway;
 mod utils;
 
 use ethabi::Address;
@@ -20,8 +21,8 @@ use near_sdk::env;
 use near_sdk::env::predecessor_account_id;
 use near_sdk::near_bindgen;
 use primitive_types::H256;
-use uint::hex;
 use utils::clean_payload;
+use utils::to_eth_hex_string;
 use utils::to_h256;
 use utils::{abi_decode, abi_encode, keccak256};
 
@@ -38,25 +39,33 @@ pub const OLD_KEY_RETENTION: u8 = 16;
 /// * `epoch_for_hash`: This is a map that maps a hash to an epoch.
 #[near_bindgen]
 #[derive(Owner, BorshDeserialize, BorshSerialize)]
-pub struct AxelarAuthWeighted {
+pub struct Axelar {
     current_epoch: u64,
     hash_for_epoch: LookupMap<u64, [u8; 32]>,
     epoch_for_hash: LookupMap<[u8; 32], u64>,
+    // Gateway
+    prefix_command_executed: [u8; 32],
+    prefix_contract_call_approved: [u8; 32],
+    bool_state: LookupMap<[u8; 32], bool>,
 }
 
 /// This is a default implementation of the `AxelarAuthWeighted` struct.
-impl Default for AxelarAuthWeighted {
+impl Default for Axelar {
     fn default() -> Self {
         Self {
             current_epoch: 0,
             hash_for_epoch: LookupMap::new(b"hash_for_epoch".to_vec()),
             epoch_for_hash: LookupMap::new(b"epoch_for_hash".to_vec()),
+            // Gateway
+            prefix_command_executed: keccak256(b"command-executed"),
+            prefix_contract_call_approved: keccak256(b"contract-call-approved"),
+            bool_state: LookupMap::new(b"bool_state".to_vec()),
         }
     }
 }
 
 #[near_bindgen]
-impl AxelarAuthWeighted {
+impl Axelar {
     /// `new` is called when the contract is first deployed, and it initializes the contract's state
     ///
     /// Arguments:
@@ -72,6 +81,10 @@ impl AxelarAuthWeighted {
             current_epoch: 0,
             hash_for_epoch: LookupMap::new(b"hash_for_epoch".to_vec()),
             epoch_for_hash: LookupMap::new(b"epoch_for_hash".to_vec()),
+            // Gateway
+            prefix_command_executed: keccak256(b"command-executed"),
+            prefix_contract_call_approved: keccak256(b"contract-call-approved"),
+            bool_state: LookupMap::new(b"bool_state".to_vec()),
         };
 
         Owner::init(&mut contract, &predecessor_account_id());
@@ -85,7 +98,7 @@ impl AxelarAuthWeighted {
 
     pub fn hash_for_epoch(&self, epoch: u64) -> String {
         let hash = self.hash_for_epoch.get(&epoch).unwrap();
-        format!("0x{}", hex::encode(hash))
+        utils::to_eth_hex_string(hash)
     }
 
     pub fn epoch_for_hash(&self, hash: String) -> u64 {
@@ -300,7 +313,17 @@ impl AxelarAuthWeighted {
             }
 
             if operator_index >= operator_length {
-                panic!("Malformed signers");
+                env::panic_str(
+                    format!(
+                        "Malformed signers. Operators {}",
+                        operators
+                            .iter()
+                            .map(|x| format!("\"{}\"", x))
+                            .collect::<Vec<_>>()
+                            .join(",")
+                    )
+                    .as_str(),
+                );
             }
 
             weight += weights[operator_index];

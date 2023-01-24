@@ -87,16 +87,10 @@ where
 
 /// Wrapped functionalities
 
-/// It takes a message, hashes it, and returns the hash as a hexadecimal string
-///
-/// Arguments:
-///
-/// * `message`: The message to be signed.
-///
-/// Returns:
-///
-/// The hash of the message
-pub fn sign_message(message: String) -> String {
+pub fn sign_message<S>(message: S) -> String
+where
+    S: AsRef<[u8]>,
+{
     let hash = hash_message(message);
     let full_hash = format!("{:#x}", hash);
     full_hash
@@ -140,4 +134,8 @@ pub fn clean_payload(payload: String) -> Vec<u8> {
 pub fn to_h256(payload: String) -> H256 {
     let clean_payload = &payload[2..payload.len()];
     H256::from_str(clean_payload).unwrap()
+}
+
+pub fn to_eth_hex_string(payload: [u8; 32]) -> String {
+    format!("0x{}", hex::encode(payload))
 }

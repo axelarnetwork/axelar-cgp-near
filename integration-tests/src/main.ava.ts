@@ -5,6 +5,10 @@ import { NEAR, NearAccount, Worker } from "near-workspaces";
 const { ethers } = require("hardhat");
 
 class Utils {
+  static getRandomID = () => {
+    return ethers.utils.id(Math.floor(Math.random() * 1e10).toString());
+  };
+
   static getWeightedSignaturesProof = async (
     data: string,
     operators: SignerWithAddress[],
@@ -38,6 +42,63 @@ class Utils {
       ]
     );
   };
+
+  static getApproveContractCall = async (
+    sourceChain: string,
+    source: string,
+    destination: string,
+    payloadHash: string,
+    sourceTxHash: string,
+    sourceEventIndex: number
+  ) => {
+    return ethers.utils.defaultAbiCoder.encode(
+      ["string", "string", "address", "bytes32", "bytes32", "uint256"],
+      [
+        sourceChain,
+        source,
+        destination,
+        payloadHash,
+        sourceTxHash,
+        sourceEventIndex,
+      ]
+    );
+  };
+
+  static buildCommandBatch = async (
+    chainId: number,
+    commandIDs: string[],
+    commandNames: string[],
+    commands: string[]
+  ) => {
+    return ethers.utils.arrayify(
+      ethers.utils.defaultAbiCoder.encode(
+        ["uint256", "bytes32[]", "string[]", "bytes[]"],
+        [chainId, commandIDs, commandNames, commands]
+      )
+    );
+  };
+
+  static getSignedWeightedExecuteInput = async (
+    data: string,
+    operators: SignerWithAddress[],
+    weights: number[],
+    threshold: number,
+    signers: SignerWithAddress[]
+  ) => {
+    return ethers.utils.defaultAbiCoder.encode(
+      ["bytes", "bytes"],
+      [
+        data,
+        await Utils.getWeightedSignaturesProof(
+          data,
+          operators,
+          weights,
+          threshold,
+          signers
+        ),
+      ]
+    );
+  };
 }
 
 const test = anyTest as TestFn<{
@@ -45,6 +106,7 @@ const test = anyTest as TestFn<{
   accounts: Record<string, NearAccount>;
 }>;
 
+const CHAIN_ID = 0;
 const ADDRESS_ZERO = "0x0000000000000000000000000000000000000000";
 const OLD_KEY_RETENTION = 16;
 
@@ -89,9 +151,6 @@ const initAuthContract = async (root: NearAccount, contract: NearAccount) => {
 test.before(async (t) => {
   wallets = await ethers.getSigners();
   wallets = wallets;
-
-  t.log(wallets.length);
-  t.log(wallets[0].address);
 
   owner = wallets[0];
 
@@ -138,6 +197,8 @@ test.afterEach.always(async (t) => {
     console.log("Failed to stop the Sandbox:", error);
   });
 });
+
+// Auth Tests
 
 test("validate the proof from the current operators", async (t) => {
   const { contract } = t.context.accounts;
@@ -280,7 +341,7 @@ test("reject the proof from the operators older than key retention", async (t) =
         })
       );
 
-      t.log(error?.message); // uncomment to see the error message
+      // t.log(error?.message); // uncomment to see the error message
 
       t.not(error, undefined); // Invalid operators
     })
@@ -634,4 +695,54 @@ test("should expose correct hashes and epoch", async (t) => {
       t.is(epochForHash, i + 1);
     })
   );
+});
+
+// Gateway Tests
+
+test("should fail if chain id mismatches", async (t) => {
+  const { contract, root } = t.context.accounts;
+
+  const data = await Utils.buildCommandBatch(
+    CHAIN_ID + 1,
+    [Utils.getRandomID()],
+    ["transferOperatorship"],
+    [
+      await Utils.getTransferWeightedOperatorshipCommand(
+        [
+          "0xb7900E8Ec64A1D1315B6D4017d4b1dcd36E6Ea88",
+          "0x6D4017D4b1DCd36e6EA88b7900e8eC64A1D1315b",
+        ],
+        [1, 1],
+        2
+      ),
+    ]
+  );
+
+  const message = ethers.utils.hashMessage(
+    ethers.utils.arrayify(ethers.utils.keccak256(data))
+  );
+
+  const input = await Utils.getSignedWeightedExecuteInput(
+    data,
+    operators,
+    operators.map(() => 1),
+    threshold,
+    operators.slice(0, threshold)
+  );
+
+  const error = await t.throwsAsync(
+    root.call(
+      contract,
+      "execute",
+      {
+        message_hash: message,
+        input,
+      },
+      { attachedDeposit: "0" }
+    )
+  );
+
+  t.log(error?.message); // uncomment to see the error message
+
+  t.not(error, undefined); // Invalid chain id
 });

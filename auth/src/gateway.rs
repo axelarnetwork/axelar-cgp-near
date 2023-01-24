@@ -1,98 +1,23 @@
-/*
- * Axelar gateway contract
- *
- */
-mod events;
-pub mod ext_traits;
+use crate::events::{ContractCallApprovedEvent, ContractCallEvent, ExecutedEvent};
+use crate::utils::{self, abi_encode, clean_payload, to_eth_hex_string};
+use crate::{utils::abi_decode, utils::keccak256, Axelar, AxelarExt};
+use ethabi::Token;
+use near_contract_tools::owner::*;
+use near_sdk::env;
 
-pub use crate::ext_traits::*;
-
-use ethabi::{ParamType, Token};
-use events::{
-    ContractCallApprovedEvent, ContractCallEvent, ExecutedEvent, OperatorshipTransferredEvent,
-};
+use ethabi::ParamType;
 use near_contract_tools::standard::nep297::Event;
-use near_contract_tools::{owner::*, Owner};
-use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::collections::LookupMap;
 use near_sdk::env::predecessor_account_id;
-use near_sdk::env::{self, keccak256};
-use near_sdk::{near_bindgen, AccountId, Gas};
-use utils::{abi_decode, abi_encode};
+use near_sdk::{near_bindgen, AccountId};
+use uint::hex;
 
-/// Defining a constant named TGAS with a value of 1,000,000,000,000.
-pub const TGAS: u64 = 1_000_000_000_000;
 /// Defining a constant string called SELECTOR_APPROVE_CONTRACT_CALL.
 pub const SELECTOR_APPROVE_CONTRACT_CALL: &str = "approveContractCall";
 /// Defining a constant string.
 pub const SELECTOR_TRANSFER_OPERATORSHIP: &str = "transferOperatorship";
 
-/// `AxelarGateway` is a struct that contains a `auth_module` field of type `AccountId`, a
-/// `prefix_command_executed` field of type `Vec<u8>`, a `prefix_contract_call_approved` field of type
-/// `Vec<u8>`, and a `bool_state` field of type `LookupMap<Vec<u8>, bool>`.
-///
-/// The `auth_module` field is the account ID of the account that will be used to authorize commands.
-///
-/// The `prefix_
-///
-/// Properties:
-///
-/// * `auth_module`: The account ID of the module that will be used to authorize commands.
-/// * `prefix_command_executed`: This is the prefix that will be used to store the state of the command
-/// executed.
-/// * `prefix_contract_call_approved`: This is the prefix that will be used to store the approved
-/// contract calls.
-/// * `bool_state`: This is a map that stores the state of the contract.
 #[near_bindgen]
-#[derive(Owner, BorshDeserialize, BorshSerialize)]
-pub struct AxelarGateway {
-    auth_module: AccountId,
-    prefix_command_executed: Vec<u8>,
-    prefix_contract_call_approved: Vec<u8>,
-    bool_state: LookupMap<Vec<u8>, bool>,
-}
-
-impl Default for AxelarGateway {
-    /// `default()` is a function that returns a `Self` struct
-    ///
-    /// Returns:
-    ///
-    /// A new instance of the `AxelarAuth` struct.
-    fn default() -> Self {
-        Self {
-            auth_module: AccountId::new_unchecked("axelar-auth.testnet".to_string()),
-            prefix_command_executed: env::keccak256(b"command-executed"),
-            prefix_contract_call_approved: env::keccak256(b"contract-call-approved"),
-            bool_state: LookupMap::new(b"bool_state".to_vec()),
-        }
-    }
-}
-
-#[near_bindgen]
-impl AxelarGateway {
-    /// `new` is the constructor of the contract
-    ///
-    /// Arguments:
-    ///
-    /// * `auth_module`: The account id of the auth module.
-    ///
-    /// Returns:
-    ///
-    /// The contract is being returned.
-    #[init]
-    pub fn new(auth_module: AccountId) -> Self {
-        let mut contract = Self {
-            auth_module,
-            prefix_command_executed: keccak256(b"command-executed"),
-            prefix_contract_call_approved: keccak256(b"contract-call-approved"),
-            bool_state: LookupMap::new(b"bool_state".to_vec()),
-        };
-
-        Owner::init(&mut contract, &predecessor_account_id());
-
-        contract
-    }
-
+impl Axelar {
     /// It emits a `ContractCallEvent` event with the current account ID, the destination chain, the
     /// destination contract address, the payload hash, and the payload
     ///
@@ -104,14 +29,15 @@ impl AxelarGateway {
     pub fn call_contract(
         destination_chain: String,
         destination_contract_address: String,
-        payload: Vec<u8>,
+        payload: String,
     ) {
-        let payload_hash = keccak256(&payload);
+        let payload_hash = keccak256(&hex::decode(payload.clone()).unwrap());
+
         let event = ContractCallEvent {
             address: predecessor_account_id().to_string(),
             destination_chain,
             destination_contract_address,
-            payload_hash,
+            payload_hash: utils::to_eth_hex_string(payload_hash),
             payload,
         };
         Event::emit(&event);
@@ -126,47 +52,19 @@ impl AxelarGateway {
     /// Arguments:
     ///
     /// * `input`: The input to the contract.
-    pub fn execute(&mut self, input: Vec<u8>) {
-        let tokens = abi_decode(&input, &vec![ParamType::Bytes, ParamType::Bytes]).unwrap();
+    #[payable]
+    pub fn execute(&mut self, message_hash: String, input: String) {
+        let payload = clean_payload(input.clone());
+
+        let tokens = abi_decode(&payload, &vec![ParamType::Bytes, ParamType::Bytes]).unwrap();
 
         let data = tokens[0].clone().into_bytes().unwrap();
-        let proof = tokens[0].clone().into_bytes().unwrap();
+        let proof = tokens[1].clone().into_bytes().unwrap();
 
-        let binding = utils::hash_message(keccak256(&data));
-        let message_hash = binding.as_bytes().clone();
+        // let message_hash = clean_payload(data.clone()); // to_eth_hex_string(data.clone().try_into().unwrap()); //utils::sign_message(data.clone());
 
-        ext_auth_contract::ext(self.auth_module.clone())
-            .with_static_gas(Gas(5 * TGAS))
-            .validate_proof(
-                Box::new(message_hash.clone().try_into().unwrap()),
-                Box::<[u8; 64]>::new(proof.clone().try_into().unwrap()).clone(),
-            )
-            .then(
-                Self::ext(env::current_account_id())
-                    .with_static_gas(Gas(5 * TGAS))
-                    .validate_proof_callback(data),
-            );
-    }
-
-    /// It takes a proof, validates it, and then executes the commands in the proof
-    ///
-    /// Arguments:
-    ///
-    /// * `data`: The data that was returned from the contract call.
-    /// * `call_result`: Result<String, near_sdk::PromiseError> - This is the result of the callback.
-    /// The callback is called with the result of the promise. The result is either a string or a
-    /// PromiseError.
-    #[private]
-    pub fn validate_proof_callback(
-        &mut self,
-        data: Vec<u8>,
-        #[callback_result] call_result: Result<String, near_sdk::PromiseError>,
-    ) {
-        if call_result.is_err() {
-            env::panic_str("Failed to validate proof");
-        }
-
-        let mut allow_operatorship_transfer = call_result.unwrap().parse::<bool>().unwrap_or(false);
+        let mut allow_operatorship_transfer =
+            self.validate_proof(message_hash, format!("0x{}", hex::encode(proof)));
 
         let expected_output_types = vec![
             ParamType::Uint(256),
@@ -204,7 +102,7 @@ impl AxelarGateway {
 
         // TODO: Update to NEAR chain id which we need to decide on
         if chain_id != 0 {
-            env::panic_str("Invalid chain id");
+            env::panic_str(format!("Invalid chain id: {}", chain_id).as_str());
         }
 
         let commands_length = command_ids.len();
@@ -216,27 +114,30 @@ impl AxelarGateway {
         for i in 0..commands_length {
             let command_id: [u8; 32] = command_ids[i].clone().try_into().unwrap();
 
-            if self.is_command_executed(command_id) {
+            if self.is_command_executed(format!("0x{}", hex::encode(command_id))) {
                 continue;
             }
 
             let command = commands[i].clone();
 
-            let success = true; // TODO: Figure this one out
+            let success: bool;
 
             match command.as_str() {
-                "approveContractCall" => {
+                SELECTOR_APPROVE_CONTRACT_CALL => {
                     self.internal_set_command_executed(command_id, true);
-                    self.approve_contract_call(params[i].clone(), command_id);
+                    success = self.approve_contract_call(
+                        utils::to_eth_hex_string(params[i].clone().try_into().unwrap()),
+                        utils::to_eth_hex_string(command_id),
+                    );
                 }
-                "transferOperatorship" => {
+                SELECTOR_TRANSFER_OPERATORSHIP => {
                     if !allow_operatorship_transfer {
                         continue;
                     }
 
                     allow_operatorship_transfer = false;
                     self.internal_set_command_executed(command_id, true);
-                    self.transfer_operatorship(params[i].clone(), command_id);
+                    success = self.internal_transfer_operatorship(params[i].clone());
                 }
                 _ => {
                     continue;
@@ -245,7 +146,7 @@ impl AxelarGateway {
 
             if success {
                 let event = ExecutedEvent {
-                    command_id: command_ids[i].clone(),
+                    command_id: utils::to_eth_hex_string(command_id),
                 };
 
                 Event::emit(&event);
@@ -253,26 +154,6 @@ impl AxelarGateway {
                 self.internal_set_command_executed(command_id, false);
             }
         }
-    }
-
-    /// `transfer_operatorship` transfers the operatorship of the contract to a new operator
-    ///
-    /// Arguments:
-    ///
-    /// * `new_operators_data`: The new operators data.
-    /// * `_command_id`: The command id of the command that is being executed.
-    pub fn transfer_operatorship(&self, new_operators_data: Vec<u8>, _command_id: [u8; 32]) {
-        Self::require_owner();
-
-        ext_auth_contract::ext(self.auth_module.clone())
-            .with_static_gas(Gas(5 * TGAS))
-            .transfer_operatorship(new_operators_data.clone());
-
-        let event = OperatorshipTransferredEvent {
-            new_operators_data: new_operators_data.clone(),
-        };
-
-        Event::emit(&event);
     }
 
     // Only Owner functions
@@ -283,7 +164,7 @@ impl AxelarGateway {
     ///
     /// * `params`: Vec<u8> - The parameters passed to the contract.
     /// * `command_id`: The command ID of the contract call.
-    pub fn approve_contract_call(&mut self, params: Vec<u8>, command_id: [u8; 32]) {
+    pub fn approve_contract_call(&mut self, params: String, command_id: String) -> bool {
         Self::require_owner();
 
         let expected_output_types = vec![
@@ -295,7 +176,9 @@ impl AxelarGateway {
             ParamType::Uint(256),
         ];
 
-        let tokens = abi_decode(&params, &expected_output_types).unwrap();
+        let payload = clean_payload(params.clone());
+
+        let tokens = abi_decode(&payload, &expected_output_types).unwrap();
 
         let source_chain = tokens[0].clone().into_string().unwrap();
         let source_address = tokens[1].clone().into_string().unwrap();
@@ -305,7 +188,7 @@ impl AxelarGateway {
         let source_event_index = tokens[5].clone().into_uint().unwrap().as_u64();
 
         self.internal_set_contract_call_approved(
-            command_id.clone(),
+            hex::decode(command_id.clone()).unwrap().try_into().unwrap(),
             source_chain.clone(),
             source_address.clone(),
             contract_address.clone(),
@@ -313,16 +196,18 @@ impl AxelarGateway {
         );
 
         let event = ContractCallApprovedEvent {
-            command_id: command_id.to_vec(),
+            command_id,
             source_chain,
             source_address,
             contract_address,
-            payload_hash,
-            source_tx_hash,
+            payload_hash: utils::to_eth_hex_string(payload_hash.try_into().unwrap()),
+            source_tx_hash: utils::to_eth_hex_string(source_tx_hash.try_into().unwrap()),
             source_event_index,
         };
 
         Event::emit(&event);
+
+        true
     }
 
     // View functions
@@ -342,18 +227,21 @@ impl AxelarGateway {
     /// A boolean value.
     pub fn is_contract_call_approved(
         &self,
-        command_id: [u8; 32],
+        command_id: String,
         source_chain: String,
         source_address: String,
         contract_address: String,
-        payload_hash: [u8; 32],
+        payload_hash: String,
     ) -> bool {
+        let command: [u8; 32] = clean_payload(command_id).try_into().unwrap();
+        let payload = clean_payload(payload_hash);
+
         let key = self.internal_get_is_contract_call_approved_key(
-            command_id,
+            command,
             source_chain,
             source_address,
             contract_address,
-            payload_hash,
+            payload.try_into().unwrap(),
         );
 
         self.bool_state.get(&key).unwrap_or(false)
@@ -365,7 +253,7 @@ impl AxelarGateway {
     ///
     /// The auth_module field of the struct.
     pub fn auth_module(&self) -> AccountId {
-        self.auth_module.clone()
+        env::current_account_id()
     }
 
     /// `is_command_executed` returns `true` if the command with the given `command_id` has been
@@ -378,8 +266,9 @@ impl AxelarGateway {
     /// Returns:
     ///
     /// A boolean value.
-    pub fn is_command_executed(&self, command_id: [u8; 32]) -> bool {
-        let key = self.internal_get_is_command_executed_key(command_id);
+    pub fn is_command_executed(&self, command_id: String) -> bool {
+        let command: [u8; 32] = clean_payload(command_id).try_into().unwrap();
+        let key = self.internal_get_is_command_executed_key(command);
         self.bool_state.get(&key).unwrap_or(false)
     }
 
@@ -401,17 +290,20 @@ impl AxelarGateway {
     #[payable]
     pub fn validate_contract_call(
         &mut self,
-        command_id: [u8; 32],
+        command_id: String,
         source_chain: String,
         source_address: String,
-        payload_hash: [u8; 32],
+        payload_hash: String,
     ) -> bool {
+        let command: [u8; 32] = clean_payload(command_id).try_into().unwrap();
+        let payload = clean_payload(payload_hash);
+
         let key = self.internal_get_is_contract_call_approved_key(
-            command_id,
+            command,
             source_chain,
             source_address,
             predecessor_account_id().to_string(),
-            payload_hash,
+            payload.try_into().unwrap(),
         );
 
         let valid = self.bool_state.get(&key).unwrap_or(false);
@@ -435,9 +327,9 @@ impl AxelarGateway {
     /// Returns:
     ///
     /// The keccak256 hash of the encoded prefix_command_executed and command_id.
-    fn internal_get_is_command_executed_key(&self, command_id: [u8; 32]) -> Vec<u8> {
+    fn internal_get_is_command_executed_key(&self, command_id: [u8; 32]) -> [u8; 32] {
         let encoded = abi_encode(vec![
-            Token::Bytes(self.prefix_command_executed.clone()),
+            Token::Bytes(self.prefix_command_executed.clone().to_vec()),
             Token::FixedBytes(command_id.to_vec()),
         ]);
 
@@ -465,9 +357,9 @@ impl AxelarGateway {
         source_address: String,
         contract_address: String,
         payload_hash: [u8; 32],
-    ) -> Vec<u8> {
+    ) -> [u8; 32] {
         let encoded = abi_encode(vec![
-            Token::Bytes(self.prefix_contract_call_approved.clone()),
+            Token::Bytes(self.prefix_contract_call_approved.clone().to_vec()),
             Token::FixedBytes(command_id.to_vec()),
             Token::String(source_chain),
             Token::String(source_address),
