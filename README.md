@@ -16,6 +16,10 @@ Install dependencies:
 
     npm install
 
+Build contract:
+
+    npm run build
+
 Build and deploy your contract to TestNet with a temporary dev account:
 
     npm run deploy
