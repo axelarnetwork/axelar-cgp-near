@@ -44,33 +44,6 @@ pub fn ecrecover(hash: H256, signature: &[u8]) -> Result<Address, ()> {
     Err(())
 }
 
-/// Hash a message according to EIP-191.
-///
-/// The data is a UTF-8 encoded string and will enveloped as follows:
-/// `"\x19Ethereum Signed Message:\n" + message.length + message` and hashed
-/// using keccak256.
-pub fn hash_message<S>(message: S) -> H256
-where
-    S: AsRef<[u8]>,
-{
-    keccak256(&prefix_message(message)).into()
-}
-
-/// Prefix a message according to EIP-191.
-///
-/// The data is a UTF-8 encoded string and will enveloped as follows:
-/// `"\x19Ethereum Signed Message:\n" + message.length + message`.
-pub fn prefix_message<S>(message: S) -> Vec<u8>
-where
-    S: AsRef<[u8]>,
-{
-    const PREFIX: &str = "\x19Ethereum Signed Message:\n32";
-    let message = message.as_ref();
-    let mut eth_message = format!("{}{}", PREFIX, message.len()).into_bytes();
-    eth_message.extend_from_slice(message);
-    eth_message
-}
-
 /// It takes a slice of bytes and returns a 32-byte hash
 /// Compute the Keccak-256 hash of input bytes.
 ///
@@ -93,24 +66,6 @@ where
         .try_into()
         .expect("hash is not the correct length");
     hash
-}
-
-/// It takes a message, hashes it, and returns the hash as a hex string
-///
-/// Arguments:
-///
-/// * `message`: The message to sign.
-///
-/// Returns:
-///
-/// A string of the hash of the message.
-pub fn sign_message<S>(message: S) -> String
-where
-    S: AsRef<[u8]>,
-{
-    let hash = hash_message(message);
-    let full_hash = format!("{:#x}", hash);
-    full_hash
 }
 
 /// It takes a byte array and a list of expected output types, and returns a list of tokens

@@ -162,7 +162,7 @@ impl Axelar {
         let weights_length = new_weights.len();
 
         if operators_length == 0
-            || !self.internal_is_sorted_asc_and_contains_no_duplicate(new_operators.clone())
+            || !Axelar::internal_is_sorted_asc_and_contains_no_duplicate(new_operators.clone())
         {
             env::panic_str("Invalid operators");
         }
@@ -287,7 +287,7 @@ impl Axelar {
     /// Returns:
     ///
     /// A boolean value.
-    fn internal_is_sorted_asc_and_contains_no_duplicate(&mut self, accounts: Vec<H160>) -> bool {
+    fn internal_is_sorted_asc_and_contains_no_duplicate(accounts: Vec<H160>) -> bool {
         for i in 0..(accounts.len() - 1) {
             if accounts[i] >= accounts[i + 1] {
                 return false;
