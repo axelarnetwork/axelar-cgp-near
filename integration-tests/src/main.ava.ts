@@ -619,10 +619,6 @@ test("Gateway - should fail if chain id mismatches", async (t) => {
     ]
   );
 
-  const message = ethers.utils.hashMessage(
-    ethers.utils.arrayify(ethers.utils.keccak256(data))
-  );
-
   const input = await Utils.getSignedWeightedExecuteInput(
     data,
     operators,
@@ -636,7 +632,6 @@ test("Gateway - should fail if chain id mismatches", async (t) => {
       contract,
       "execute",
       {
-        message_hash: message,
         input,
       },
       { attachedDeposit: "0" }
@@ -646,52 +641,6 @@ test("Gateway - should fail if chain id mismatches", async (t) => {
   // t.log(error?.message); // uncomment to see the error message
 
   t.not(error, undefined); // Invalid chain id
-});
-
-test("Gateway - should allow operators to transfer operatorship", async (t) => {
-  const { contract, root } = t.context.accounts;
-
-  const newOperators = [
-    "0xb7900E8Ec64A1D1315B6D4017d4b1dcd36E6Ea88",
-    "0x6D4017D4b1DCd36e6EA88b7900e8eC64A1D1315b",
-  ];
-
-  const data = await Utils.buildCommandBatch(
-    CHAIN_ID,
-    [Utils.getRandomID()],
-    ["transferOperatorship"],
-    [
-      await Utils.getTransferWeightedOperatorshipCommand(
-        newOperators,
-        [1, 1],
-        2
-      ),
-    ]
-  );
-
-  const message = ethers.utils.hashMessage(
-    ethers.utils.arrayify(ethers.utils.keccak256(data))
-  );
-
-  const input = await Utils.getSignedWeightedExecuteInput(
-    data,
-    operators,
-    operators.map(() => 1),
-    threshold,
-    operators.slice(0, threshold)
-  );
-
-  const result = await root.call(
-    contract,
-    "execute",
-    {
-      message_hash: message,
-      input,
-    },
-    { attachedDeposit: "0" }
-  );
-
-  t.deepEqual(result, [true]);
 });
 
 test("Gateway - should not allow transferring operatorship to address zero", async (t) => {
@@ -715,10 +664,6 @@ test("Gateway - should not allow transferring operatorship to address zero", asy
     ]
   );
 
-  const message = ethers.utils.hashMessage(
-    ethers.utils.arrayify(ethers.utils.keccak256(data))
-  );
-
   const input = await Utils.getSignedWeightedExecuteInput(
     data,
     operators,
@@ -732,7 +677,6 @@ test("Gateway - should not allow transferring operatorship to address zero", asy
       contract,
       "execute",
       {
-        message_hash: message,
         input,
       },
       { attachedDeposit: "0" }
@@ -742,6 +686,89 @@ test("Gateway - should not allow transferring operatorship to address zero", asy
   // t.log(error?.message); // uncomment to see the error message
 
   t.not(error, undefined); // Invalid operators
+});
+
+test("Gateway - should approve and validate contract call", async (t) => {
+  const { contract, root } = t.context.accounts;
+
+  const payload = ethers.utils.defaultAbiCoder.encode(
+    ["address"],
+    [owner.address]
+  );
+  const payloadHash = ethers.utils.keccak256(payload);
+  const commandId = Utils.getRandomID();
+  const sourceChain = "Polygon";
+  const sourceAddress = "address0x123";
+  const sourceTxHash = ethers.utils.keccak256("0x123abc123abc");
+  const sourceEventIndex = 17;
+
+  const approveData = await Utils.buildCommandBatch(
+    CHAIN_ID,
+    [commandId],
+    ["approveContractCall"],
+    [
+      await Utils.getApproveContractCall(
+        sourceChain,
+        sourceAddress,
+        owner.address,
+        payloadHash,
+        sourceTxHash,
+        sourceEventIndex
+      ),
+    ]
+  );
+
+  const approveInput = await Utils.getSignedWeightedExecuteInput(
+    approveData,
+    operators,
+    operators.map(() => 1),
+    threshold,
+    operators.slice(0, threshold)
+  );
+
+  const result = await root.call(
+    contract,
+    "execute",
+    {
+      input: approveInput,
+    },
+    { attachedDeposit: "0" }
+  );
+
+  t.deepEqual(result, [true]);
+
+  const isApprovedBefore = await contract.view("is_contract_call_approved", {
+    command_id: commandId,
+    source_chain: sourceChain,
+    source_address: sourceAddress,
+    contract_address: owner.address,
+    payload_hash: payloadHash,
+  });
+
+  t.is(isApprovedBefore, true);
+
+  await root.call(
+    contract,
+    "validate_contract_call",
+    {
+      command_id: commandId,
+      source_chain: sourceChain,
+      source_address: sourceAddress,
+      contract_address: owner.address,
+      payload_hash: payloadHash,
+    },
+    { attachedDeposit: "0" }
+  );
+
+  const isApprovedAfter = await contract.view("is_contract_call_approved", {
+    command_id: commandId,
+    source_chain: sourceChain,
+    source_address: sourceAddress,
+    contract_address: owner.address,
+    payload_hash: payloadHash,
+  });
+
+  t.is(isApprovedAfter, false);
 });
 
 test("Gateway - call contract", async (t) => {
