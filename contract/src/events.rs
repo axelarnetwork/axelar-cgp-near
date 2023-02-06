@@ -11,9 +11,9 @@ use near_contract_tools::event;
 /// * `new_threshold`: The new threshold for the operatorship.
 #[event(standard = "axelar_near", version = "1.0.0")]
 pub struct OperatorshipTransferredEvent {
-    pub new_operators: String,
-    pub new_weights: String,
-    pub new_threshold: String,
+    pub new_operators: Vec<String>,
+    pub new_weights: Vec<u64>,
+    pub new_threshold: u64,
 }
 
 /// Gateway Events

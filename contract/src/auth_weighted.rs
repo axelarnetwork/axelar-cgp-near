@@ -196,23 +196,12 @@ impl Axelar {
 
         // Emit event
         let event = OperatorshipTransferredEvent {
-            new_operators: format!(
-                "[{}]",
-                new_operators
-                    .iter()
-                    .map(|x| format!("\"{}\"", x))
-                    .collect::<Vec<_>>()
-                    .join(","),
-            ),
-            new_weights: format!(
-                "[{}]",
-                new_weights
-                    .iter()
-                    .map(|x| format!("{}", x))
-                    .collect::<Vec<_>>()
-                    .join(","),
-            ),
-            new_threshold: format!("{}", new_threshold),
+            new_operators: new_operators
+                .iter()
+                .map(|x| format!("{:#x}", x))
+                .collect::<Vec<_>>(),
+            new_weights: new_weights.iter().map(|x| x.as_u64()).collect::<Vec<_>>(),
+            new_threshold: new_threshold.as_u64(),
         };
 
         event.emit();
