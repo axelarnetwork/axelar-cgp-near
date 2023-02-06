@@ -296,7 +296,6 @@ impl Axelar {
         command_id: String,
         source_chain: String,
         source_address: String,
-        contract_address: String,
         payload_hash: String,
     ) -> bool {
         let command: [u8; 32] = clean_payload(command_id).try_into().unwrap();
@@ -306,7 +305,7 @@ impl Axelar {
             command,
             source_chain,
             source_address,
-            contract_address,
+            predecessor_account_id().to_string(),
             payload.try_into().unwrap(),
         );
 
@@ -338,7 +337,7 @@ impl Axelar {
         let expected_output_types = vec![
             ParamType::String,
             ParamType::String,
-            ParamType::Address,
+            ParamType::String,
             ParamType::FixedBytes(32),
             ParamType::FixedBytes(32),
             ParamType::Uint(256),
@@ -348,19 +347,18 @@ impl Axelar {
 
         let source_chain = tokens[0].clone().into_string().unwrap();
         let source_address = tokens[1].clone().into_string().unwrap();
-        let contract_address = tokens[2].clone().into_address().unwrap();
+        let contract_address = tokens[2].clone().into_string().unwrap();
         let payload_hash = tokens[3].clone().into_fixed_bytes().unwrap();
         let source_tx_hash = tokens[4].clone().into_fixed_bytes().unwrap();
         let source_event_index = tokens[5].clone().into_uint().unwrap().as_u64();
 
         let command = clean_payload(command_id.clone()).try_into().unwrap();
-        let contract_address_cleaned = format!("{:#x}", contract_address);
 
         self.internal_set_contract_call_approved(
             command,
             source_chain.clone(),
             source_address.clone(),
-            contract_address_cleaned.clone(),
+            contract_address.clone(),
             payload_hash.clone().try_into().unwrap(),
         );
 
@@ -368,7 +366,7 @@ impl Axelar {
             command_id,
             source_chain,
             source_address,
-            contract_address: contract_address_cleaned,
+            contract_address,
             payload_hash: utils::to_eth_hex_string(payload_hash.try_into().unwrap()),
             source_tx_hash: utils::to_eth_hex_string(source_tx_hash.try_into().unwrap()),
             source_event_index,

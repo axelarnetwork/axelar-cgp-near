@@ -53,7 +53,7 @@ class Utils {
     sourceEventIndex: number
   ) => {
     return ethers.utils.defaultAbiCoder.encode(
-      ["string", "string", "address", "bytes32", "bytes32", "uint256"],
+      ["string", "string", "string", "bytes32", "bytes32", "uint256"],
       [
         sourceChain,
         source,

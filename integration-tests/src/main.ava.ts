@@ -710,7 +710,7 @@ test("Gateway - should approve and validate contract call", async (t) => {
       await Utils.getApproveContractCall(
         sourceChain,
         sourceAddress,
-        owner.address,
+        contract.accountId,
         payloadHash,
         sourceTxHash,
         sourceEventIndex
@@ -741,20 +741,19 @@ test("Gateway - should approve and validate contract call", async (t) => {
     command_id: commandId,
     source_chain: sourceChain,
     source_address: sourceAddress,
-    contract_address: owner.address,
+    contract_address: contract.accountId,
     payload_hash: payloadHash,
   });
 
   t.is(isApprovedBefore, true);
 
-  await root.call(
+  await contract.call(
     contract,
     "validate_contract_call",
     {
       command_id: commandId,
       source_chain: sourceChain,
       source_address: sourceAddress,
-      contract_address: owner.address,
       payload_hash: payloadHash,
     },
     { attachedDeposit: "0" }
@@ -764,7 +763,7 @@ test("Gateway - should approve and validate contract call", async (t) => {
     command_id: commandId,
     source_chain: sourceChain,
     source_address: sourceAddress,
-    contract_address: owner.address,
+    contract_address: contract.accountId,
     payload_hash: payloadHash,
   });
 
