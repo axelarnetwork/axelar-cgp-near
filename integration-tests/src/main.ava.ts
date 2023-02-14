@@ -2,6 +2,7 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import anyTest, { TestFn } from "ava";
 import { sortBy } from "lodash";
 import { NEAR, NearAccount, Worker } from "near-workspaces";
+import path from "path";
 import Utils from "./utils";
 const { ethers } = require("hardhat");
 
@@ -23,7 +24,7 @@ const previousOperators: SignerWithAddress[][] = [];
 
 const initContract = async (root: NearAccount, contract: NearAccount) => {
   await contract.deploy(
-    "./contract/target/wasm32-unknown-unknown/release/axelar_auth_gateway.wasm"
+    path.join(__dirname, "../../out/axelar_auth_gateway.wasm")
   );
 
   const initialOperators: SignerWithAddress[][] = [
@@ -89,8 +90,20 @@ test.beforeEach(async (t) => {
 
   await initContract(root, contract);
 
+  const executableContract = await root.createSubAccount(
+    "near_axelar_contract_call_example"
+  );
+
+  await executableContract.deploy(
+    path.join(__dirname, "../../out/near_axelar_contract_call_example.wasm")
+  );
+
+  await root.call(executableContract, "new", {
+    gateway_account_id: contract.accountId,
+  });
+
   t.context.worker = worker;
-  t.context.accounts = { root, contract, john };
+  t.context.accounts = { root, contract, john, executableContract };
 });
 
 test.afterEach.always(async (t) => {
@@ -770,7 +783,7 @@ test("Gateway - should approve and validate contract call", async (t) => {
   t.is(isApprovedAfter, false);
 });
 
-test("Gateway - call contract", async (t) => {
+test("Gateway - call contract event will emit", async (t) => {
   const { contract, root } = t.context.accounts;
 
   const chain = "Polygon";
@@ -802,4 +815,145 @@ test("Gateway - call contract", async (t) => {
   t.is(event.destination_contract_address, destination);
   t.is(event.payload_hash, ethers.utils.keccak256(payload));
   t.is(event.payload, payload);
+});
+
+// Executable Near Contract tests
+test("Gateway - call executable contract", async (t) => {
+  const { worker, root, contract, executableContract } = t.context.accounts;
+
+  const payload = ethers.utils.defaultAbiCoder.encode(
+    ["string"],
+    ["Hello from Polygon!"]
+  );
+
+  const payloadHash = ethers.utils.keccak256(payload);
+  const commandId = Utils.getRandomID();
+  const sourceChain = "Polygon";
+  const sourceAddress = "address0x123";
+  const sourceTxHash = ethers.utils.keccak256("0x123abc123abc");
+  const sourceEventIndex = 17;
+
+  const approveData = await Utils.buildCommandBatch(
+    CHAIN_ID,
+    [commandId],
+    ["approveContractCall"],
+    [
+      await Utils.getApproveContractCall(
+        sourceChain,
+        sourceAddress,
+        executableContract.accountId,
+        payloadHash,
+        sourceTxHash,
+        sourceEventIndex
+      ),
+    ]
+  );
+
+  const approveInput = await Utils.getSignedWeightedExecuteInput(
+    approveData,
+    operators,
+    operators.map(() => 1),
+    threshold,
+    operators.slice(0, threshold)
+  );
+
+  const result = await root.call(
+    contract,
+    "execute",
+    {
+      input: approveInput,
+    },
+    { attachedDeposit: "0" }
+  );
+
+  t.deepEqual(result, [true]);
+
+  const isApprovedBefore = await contract.view("is_contract_call_approved", {
+    command_id: commandId,
+    source_chain: sourceChain,
+    source_address: sourceAddress,
+    contract_address: executableContract.accountId,
+    payload_hash: payloadHash,
+  });
+
+  t.is(isApprovedBefore, true);
+
+  await contract.call(
+    executableContract,
+    "execute",
+    {
+      command_id: commandId,
+      source_chain: sourceChain,
+      source_address: sourceAddress,
+      payload,
+    },
+    { attachedDeposit: "0" }
+  );
+
+  const isApprovedAfter = await contract.view("is_contract_call_approved", {
+    command_id: commandId,
+    source_chain: sourceChain,
+    source_address: sourceAddress,
+    contract_address: executableContract.accountId,
+    payload_hash: payloadHash,
+  });
+
+  t.is(isApprovedAfter, false);
+
+  const value = await executableContract.view("get_value", {});
+
+  const contractSourceChain = await executableContract.view(
+    "get_source_chain",
+    {}
+  );
+  const contractSourceAddress = await executableContract.view(
+    "get_source_address",
+    {}
+  );
+
+  t.is(value, "Hello from Polygon!");
+  t.is(contractSourceChain, sourceChain);
+  t.is(contractSourceAddress, sourceAddress);
+});
+
+test("Gateway - should emit contract called event in a cross contract call", async (t) => {
+  const { worker, root, contract, executableContract } = t.context.accounts;
+
+  const payload = ethers.utils.defaultAbiCoder.encode(
+    ["string"],
+    ["Hello from Near!"]
+  );
+
+  const payloadHash = ethers.utils.keccak256(payload);
+
+  const chain = "ethereum";
+  const destinationAddress = "address0x123";
+  const value = "Hello from Near!";
+
+  const tx = await executableContract.callRaw(
+    executableContract,
+    "set",
+    {
+      chain,
+      destination_address: destinationAddress,
+      value,
+    },
+    {
+      attachedDeposit: "0",
+    }
+  );
+
+  const events = tx.result.receipts_outcome
+    .map((receipt) => receipt.outcome.logs.map((log) => log))
+    .flatMap((log) => log)
+    .filter((log) => log.includes("axelar_near"))
+    .map((event) => JSON.parse(event.slice(11)));
+
+  t.is(events[0].standard, "axelar_near");
+  t.is(events[0].version, "1.0.0");
+  t.is(events[0].event, "contract_call_event");
+  t.is(events[0].data.destination_chain, chain);
+  t.is(events[0].data.destination_contract_address, destinationAddress);
+  t.is(events[0].data.payload, payload);
+  t.is(events[0].data.payload_hash, payloadHash);
 });
