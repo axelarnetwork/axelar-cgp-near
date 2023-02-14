@@ -1,7 +1,7 @@
 use crate::events::OperatorshipTransferredEvent;
 use crate::utils::{self, abi_encode, clean_payload, to_h256};
 use crate::{utils::abi_decode, utils::keccak256, Axelar, AxelarExt};
-use ethabi::ethereum_types::H160;
+use ethabi::ethereum_types::{H160, H256};
 use ethabi::{Address, Token};
 use near_contract_tools::owner::*;
 use near_sdk::env;
@@ -9,7 +9,6 @@ use near_sdk::env;
 use ethabi::ParamType;
 use near_contract_tools::standard::nep297::Event;
 use near_sdk::near_bindgen;
-use primitive_types::H256;
 
 /// A constant that is used to determine how many epochs old keys are valid for.
 pub const OLD_KEY_RETENTION: u8 = 16;

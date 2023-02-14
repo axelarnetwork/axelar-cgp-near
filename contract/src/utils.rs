@@ -4,12 +4,11 @@
  */
 use ethabi::decode;
 use ethabi::encode;
+use ethabi::ethereum_types::H256;
 use ethabi::Address;
 use ethabi::ParamType;
 use ethabi::Token;
-use primitive_types::H256;
 use sha3::{Digest, Keccak256};
-use std::str::FromStr;
 use uint::hex;
 
 /// It takes a hash and a signature, and returns the address that signed the hash
@@ -125,7 +124,7 @@ pub fn clean_payload(payload: String) -> Vec<u8> {
 /// A H256 hash
 pub fn to_h256(payload: String) -> H256 {
     let clean_payload = &payload[2..payload.len()];
-    H256::from_str(clean_payload).unwrap()
+    <H256 as std::str::FromStr>::from_str(clean_payload).unwrap()
 }
 
 /// It takes a 32-byte array and returns a hex string

@@ -48,22 +48,6 @@ impl Axelar {
         event
     }
 
-    #[payable]
-    pub fn test_hash(&mut self, input: String) -> String {
-        let payload = clean_payload(input.clone());
-
-        let tokens = abi_decode(&payload, &vec![ParamType::Bytes, ParamType::Bytes]).unwrap();
-
-        let data = tokens[0].clone().into_bytes().unwrap();
-
-        let message = keccak256(data.clone());
-        const PREFIX: &str = "\x19Ethereum Signed Message:\n32";
-        let mut eth_message = PREFIX.as_bytes().to_vec();
-        eth_message.extend_from_slice(message.as_ref());
-
-        format!("0x{}", hex::encode(keccak256(eth_message)))
-    }
-
     // Execute command function
 
     /// It takes a message hash and a proof, validates the proof, and then executes the commands in the
@@ -331,7 +315,7 @@ impl Axelar {
     /// Returns:
     ///
     /// A boolean value.
-    pub fn internal_approve_contract_call(&mut self, payload: Vec<u8>, command_id: String) -> bool {
+    fn internal_approve_contract_call(&mut self, payload: Vec<u8>, command_id: String) -> bool {
         Self::require_owner();
 
         let expected_output_types = vec![
@@ -350,7 +334,7 @@ impl Axelar {
         let contract_address = tokens[2].clone().into_string().unwrap();
         let payload_hash = tokens[3].clone().into_fixed_bytes().unwrap();
         let source_tx_hash = tokens[4].clone().into_fixed_bytes().unwrap();
-        let source_event_index = tokens[5].clone().into_uint().unwrap().as_u64();
+        let source_event_index = tokens[5].clone().into_uint().unwrap().as_u64(); // Crashes
 
         let command = clean_payload(command_id.clone()).try_into().unwrap();
 
