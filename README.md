@@ -10,6 +10,12 @@
     <a href="https://near.org/" target="blank"><img src="./tech-logos/near_logo.png" width="200" alt="Near Logo" /></a>
 </p>
 
+# Exploring The Code
+
+1. The Axelar Authentication and Gateway smart-contract code lives in the `/contract` folder.
+2. The example smart-contract that supports communication with Gateway lives in the `/near-axelar-contract-call-example` folder.
+3. Test contract using: `npm test`, this will run the tests in `integration-tests` directory.
+
 # Quick Start
 
 Install dependencies:
@@ -27,11 +33,6 @@ Build and deploy your contract to TestNet with a temporary dev account:
 Test your contract:
 
     npm run test
-
-# Exploring The Code
-
-1. The smart-contract code lives in the `/contract` folder.
-2. Test your contract: `npm test`, this will run the tests in `integration-tests` directory.
 
 # Deploy
 
