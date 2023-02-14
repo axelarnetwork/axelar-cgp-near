@@ -3,9 +3,12 @@
   "version": "1.0.0",
   "license": "(MIT AND Apache-2.0)",
   "scripts": {
-    "deploy": "cd contract && ./deploy.sh",
-    "build": "npm run build:contract",
+    "deploy": "npm run deploy:axelar-auth-gateway && npm run deploy:near-axelar-example",
+    "deploy:axelar-auth-gateway": "cd contract && ./deploy.sh",
+    "deploy:near-axelar-example": "cd near-axelar-contract-call-example && ./deploy.sh",
+    "build": "npm run build:contract && npm run build:contract-example",
     "build:contract": "cd contract && ./build.sh",
+    "build:contract-example": "cd near-axelar-contract-call-example && ./build.sh",
     "test": "cd integration-tests && npm run test"
   },
   "devDependencies": {
