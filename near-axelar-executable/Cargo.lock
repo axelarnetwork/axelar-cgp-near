@@ -692,15 +692,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "near-axelar-contract-call-example"
-version = "1.0.0"
-dependencies = [
- "near-axelar-executable",
- "near-sdk",
- "primitive-types 0.9.1",
-]
-
-[[package]]
 name = "near-axelar-executable"
 version = "1.0.0"
 dependencies = [

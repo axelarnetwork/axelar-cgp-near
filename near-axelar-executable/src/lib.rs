@@ -1,4 +1,8 @@
-use near_sdk::{Promise, PromiseError};
+pub mod external;
+pub mod utils;
+pub extern crate ethabi;
+
+pub use near_sdk::{Promise, PromiseError};
 
 /// This is a trait that is implemented by the contract and provides a contract-specific way to execute a command.
 pub trait ContractExecutable {
@@ -36,7 +40,10 @@ pub trait AxelarExecutable {
 macro_rules! impl_axelar_executable {
     ($contract: ident, $gateway_account_id: ident, $_execute: ident) => {
         use near_sdk::*;
+        use $crate::external::*;
         use $crate::utils::*;
+
+        pub const TGAS: u64 = 1_000_000_000_000;
 
         #[near_bindgen]
         impl AxelarExecutable for $contract {

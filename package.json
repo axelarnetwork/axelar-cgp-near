@@ -14,5 +14,9 @@
   "devDependencies": {
     "near-cli": "^3.3.0"
   },
-  "dependencies": {}
+  "dependencies": {},
+  "engines": {
+    "node": "^16.0.0 || ^18.0.0"
+  },
+  "files": ["out/axelar_auth_gateway.wasm"]
 }
