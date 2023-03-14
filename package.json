@@ -1,7 +1,22 @@
 {
-  "name": "axelar-cgp-near",
+  "name": "@axelar-network/axelar-cgp-near",
   "version": "1.0.0",
-  "license": "(MIT AND Apache-2.0)",
+  "description": "NEAR Smart Contracts for Axelar Network",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/axelarnetwork/axelar-cgp-near.git"
+  },
+  "keywords": [
+    "ethereum",
+    "near",
+    "axelar"
+  ],
+  "author": "axelar-network",
+  "bugs": {
+    "url": "https://github.com/axelarnetwork/axelar-cgp-near/issues"
+  },
+  "homepage": "https://github.com/axelarnetwork/axelar-cgp-near#readme",
   "scripts": {
     "deploy": "npm run deploy:axelar-auth-gateway && npm run deploy:near-axelar-example",
     "deploy:axelar-auth-gateway": "cd contract && ./deploy.sh",
