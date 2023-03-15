@@ -1,7 +1,7 @@
 [package]
-name = "axelar_auth_gateway"
+name = "axelar-cgp-near"
 version = "1.0.0"
-authors = ["Near Inc <hello@near.org>"]
+authors = ["Axelar Network <eng@axelar.network>"]
 edition = "2021"
 
 [lib]

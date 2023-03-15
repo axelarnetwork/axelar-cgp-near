@@ -24,7 +24,7 @@ const previousOperators: SignerWithAddress[][] = [];
 
 const initContract = async (root: NearAccount, contract: NearAccount) => {
   await contract.deploy(
-    path.join(__dirname, "../../out/axelar_auth_gateway.wasm")
+    path.join(__dirname, "../../dist/axelar_cgp_near.wasm")
   );
 
   const initialOperators: SignerWithAddress[][] = [
@@ -86,16 +86,16 @@ test.beforeEach(async (t) => {
     initialBalance: NEAR.parse("3 N").toJSON(),
   });
 
-  const contract = await root.createSubAccount("axelar_auth_weighted");
+  const contract = await root.createSubAccount("axelar_cgp_near");
 
   await initContract(root, contract);
 
   const executableContract = await root.createSubAccount(
-    "near_axelar_contract_call_example"
+    "axelar_near_executable_example"
   );
 
   await executableContract.deploy(
-    path.join(__dirname, "../../out/near_axelar_contract_call_example.wasm")
+    path.join(__dirname, "../../executable-example/target/wasm32-unknown-unknown/release/executable_example.wasm")
   );
 
   await root.call(executableContract, "new", {

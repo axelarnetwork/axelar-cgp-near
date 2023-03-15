@@ -18,12 +18,12 @@
   },
   "homepage": "https://github.com/axelarnetwork/axelar-cgp-near#readme",
   "scripts": {
-    "deploy": "npm run deploy:axelar-auth-gateway && npm run deploy:near-axelar-example",
-    "deploy:axelar-auth-gateway": "cd contract && ./deploy.sh",
-    "deploy:near-axelar-example": "cd near-axelar-contract-call-example && ./deploy.sh",
+    "deploy": "npm run deploy:axelar-cgp-near && npm run deploy:executable-example",
+    "deploy:axelar-cgp-near": "cd contract && ./deploy.sh",
+    "deploy:executable-example": "cd executable-example && ./deploy.sh",
     "build": "npm run build:contract && npm run build:contract-example",
     "build:contract": "cd contract && ./build.sh",
-    "build:contract-example": "cd near-axelar-contract-call-example && ./build.sh",
+    "build:contract-example": "cd executable-example && ./build.sh",
     "test": "cd integration-tests && npm run test"
   },
   "devDependencies": {
@@ -33,5 +33,5 @@
   "engines": {
     "node": "^16.0.0 || ^18.0.0"
   },
-  "files": ["dist/axelar_auth_gateway.wasm"]
+  "files": ["dist/axelar_cgp_near.wasm"]
 }

@@ -10,4 +10,4 @@ fi
 echo ">> Deploying contract"
 
 # https://docs.near.org/tools/near-cli#near-dev-deploy
-near dev-deploy --wasmFile ./target/wasm32-unknown-unknown/release/axelar_near_example.wasm
+near dev-deploy --wasmFile ./target/wasm32-unknown-unknown/release/executable_example.wasm

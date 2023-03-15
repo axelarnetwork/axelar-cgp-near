@@ -1,7 +1,7 @@
 [package]
-name = "near-axelar-contract-call-example"
+name = "executable-example"
 version = "1.0.0"
-authors = ["Axelar Network <hello@axelar.org>"]
+authors = ["Axelar Network <eng@axelar.network>"]
 edition = "2021"
 
 [lib]
@@ -10,7 +10,7 @@ crate-type = ["cdylib"]
 [dependencies]
 near-sdk = "4.1.1"
 primitive-types = { version = "0.9.0", default-features = false, features = ["rlp"] }
-near-axelar-executable = { path = "../near-axelar-executable"}
+axelar-executable-near = { path = "../executable"}
 
 [profile.release]
 codegen-units = 1

@@ -2,7 +2,7 @@
 
 # Intro
 
-NEAR contract that supports communication with Axelar gateway to send and recive messages.
+NEAR example contract that supports communication with Axelar gateway to send and receive messages.
 
 # Quickstart
 

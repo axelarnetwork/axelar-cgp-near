@@ -1,0 +1,20 @@
+[package]
+name = "axelar-executable-near"
+version = "1.0.0"
+authors = ["Axelar Network <eng@axelar.network>"]
+edition = "2021"
+description = "This crate provides everything needed to support Axelar general message passing for NEAR."
+license-file = "../LICENSE"
+readme = "./README.md"
+documentation = "https://docs.axelar.dev/"
+repository = "https://github.com/axelarnetwork/axelar-cgp-near"
+homepage = "https://axelar.network/"
+keywords = ["rust", "ethereum", "near", "axelar"]
+categories = ["development-tools"]
+
+[dependencies]
+near-sdk = "4.1.1"
+uint = { version = "0.9.3", default-features = false }
+ethabi = { version = "18.0.0", default-features = false }
+sha3 = { version = "0.9.1", default-features = false }
+primitive-types = { version = "0.9.0", default-features = false, features = ["rlp"] }

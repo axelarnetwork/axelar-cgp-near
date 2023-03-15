@@ -13,7 +13,7 @@
 # Exploring The Code
 
 1. The Axelar Authentication and Gateway smart-contract code lives in the `/contract` folder.
-2. The example smart-contract that supports communication with Gateway lives in the `/near-axelar-contract-call-example` folder.
+2. The example smart-contract that supports communication with Gateway lives in the `/executable-example` folder.
 3. Test contract using: `npm test`, this will run the tests in `integration-tests` directory.
 
 # Quick Start

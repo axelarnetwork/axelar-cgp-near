@@ -1,11 +1,25 @@
+# axelar-executable-near
+
+This crate provides everything needed to support Axelar general message passing for NEAR.
+
+## Installation
+
+```toml
+[dependencies]
+axelar-executable-near = "1.0"
+```
+
+## Example
+
+```rust
 /*
  * Example of a NEAR contract that supports cross-chain calls from Axelar.
  *
  */
 
-use near_axelar_executable::ethabi::{ParamType, Token};
-use near_axelar_executable::utils::{abi_decode, abi_encode};
-use near_axelar_executable::{impl_axelar_executable, AxelarExecutable, ContractExecutable};
+use axelar_executable_near::ethabi::{ParamType, Token};
+use axelar_executable_near::utils::{abi_decode, abi_encode};
+use axelar_executable_near::{impl_axelar_executable, AxelarExecutable, ContractExecutable};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::AccountId;
 use near_sdk::PanicOnDefault;
@@ -15,7 +29,6 @@ use near_sdk::{near_bindgen, Promise};
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct AxelarNearExample {
     pub gateway_account_id: AccountId,
-    // Example
     pub value: Option<String>,
     pub source_chain: Option<String>,
     pub source_address: Option<String>,
@@ -68,3 +81,5 @@ impl ContractExecutable for AxelarNearExample {
 }
 
 impl_axelar_executable!(AxelarNearExample, gateway_account_id, _execute);
+```
+
